@@ -1,6 +1,9 @@
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { Tooltip } from './Tooltip';
 
 interface HeaderProps {
   onToggleChat: () => void;
@@ -8,6 +11,7 @@ interface HeaderProps {
   onUpgrade: () => void;
   onNavigateHome: () => void;
   onNavigateToProfile: () => void;
+  onLoginClick: () => void;
   remainingLessons?: number | null;
 }
 
@@ -26,9 +30,10 @@ export const Header: React.FC<HeaderProps> = ({
   onUpgrade,
   onNavigateHome,
   onNavigateToProfile,
+  onLoginClick,
   remainingLessons
 }) => {
-  const { user, userRole, loginWithGoogle, logout } = useAuth();
+  const { user, userRole, logout } = useAuth();
   const { theme, setTheme } = useSettings();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -126,9 +131,9 @@ export const Header: React.FC<HeaderProps> = ({
                     </span>
                 )}
                 <button
-                    onClick={loginWithGoogle}
+                    onClick={onLoginClick}
                     className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-blue-600 rounded-lg hover:from-teal-600 hover:to-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                    aria-label="Login with Google"
+                    aria-label="Login or Sign up"
                  >
                     <span>Login</span>
                  </button>

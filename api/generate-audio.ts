@@ -17,8 +17,8 @@ export default async function handler(req: Request) {
   }
 
   if (!process.env.API_KEY) {
-    console.error("API_KEY environment variable not set on the server");
-    return createErrorResponse("Server configuration error: API key is missing.", 500);
+    console.error("CRITICAL: API_KEY environment variable is not set on the server. This is required for Gemini API calls. Please add it to your environment variables.");
+    return createErrorResponse("Server configuration error: The application's API key is missing. Please contact the administrator.", 500);
   }
 
   try {

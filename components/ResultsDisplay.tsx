@@ -270,7 +270,7 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ content, onReset
         </div>
         
         <div className="p-4 sm:p-6 bg-gray-100 dark:bg-gray-900">
-            <audio ref={audioRef} src={content.audioUrl} controls className="w-full" />
+            <audio ref={audioRef} src={content.audioUrl} controls className="w-full" aria-label={`Audio lesson for ${content.title}`} />
         </div>
 
         <div className="p-4 sm:p-6 pb-32 sm:pb-40">
@@ -305,7 +305,7 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ content, onReset
                                 </div>
                                 <div className="md:w-48 mt-4 md:mt-0 flex-shrink-0">
                                      {scene.imageUrl ? (
-                                        <img src={scene.imageUrl} alt={`Visual for Scene ${scene.sceneNumber}`} className="w-full h-auto rounded-lg object-cover shadow-md" />
+                                        <img src={scene.imageUrl} alt={scene.visualDescription} className="w-full h-auto rounded-lg object-cover shadow-md" />
                                      ) : (
                                         <div className="w-full h-32 bg-gray-200 dark:bg-gray-700 rounded-lg flex flex-col items-center justify-center p-2 text-center">
                                             {(() => {

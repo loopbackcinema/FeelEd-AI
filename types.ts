@@ -1,6 +1,14 @@
-import type { User as FirebaseUser } from 'firebase/auth';
+// Decouple the Firebase user type to prevent premature module loading issues.
+// This local interface defines the shape of the user object our app uses,
+// avoiding a direct dependency on the 'firebase/auth' module in files
+// that are not lazy-loaded.
+export interface FirebaseUser {
+  uid: string;
+  displayName: string | null;
+  photoURL: string | null;
+  email: string | null;
+}
 
-export type { FirebaseUser };
 
 export type Theme = 'light' | 'dark';
 

@@ -1,31 +1,24 @@
 // IMPORTANT:
 // 1. Create a Firebase project at https://console.firebase.google.com/
 // 2. Go to Project Settings -> General, and find your web app config.
-// 3. Create a file named `.env` in the root of your project.
-// 4. Add your Firebase config to the `.env` file like this:
-//    VITE_FIREBASE_API_KEY="your-api-key"
-//    VITE_FIREBASE_AUTH_DOMAIN="your-auth-domain"
-//    VITE_FIREBASE_PROJECT_ID="your-project-id"
-//    VITE_FIREBASE_STORAGE_BUCKET="your-storage-bucket"
-//    VITE_FIREBASE_MESSAGING_SENDER_ID="your-sender-id"
-//    VITE_FIREBASE_APP_ID="your-app-id"
-// Note: In this environment, these are accessed via `process.env` not `import.meta.env`.
+// 3. Replace the placeholder values below with your actual Firebase config.
+//    This is required for the application to connect to Firebase.
 
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-
-const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY,
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.VITE_FIREBASE_APP_ID,
+export const firebaseConfig = {
+  apiKey: "REPLACE_WITH_YOUR_FIREBASE_API_KEY",
+  authDomain: "REPLACE_WITH_YOUR_FIREBASE_AUTH_DOMAIN",
+  projectId: "REPLACE_WITH_YOUR_FIREBASE_PROJECT_ID",
+  storageBucket: "REPLACE_WITH_YOUR_FIREBASE_STORAGE_BUCKET",
+  messagingSenderId: "REPLACE_WITH_YOUR_FIREBASE_MESSAGING_SENDER_ID",
+  appId: "REPLACE_WITH_YOUR_FIREBASE_APP_ID",
 };
 
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-
-// Initialize Firebase Authentication and get a reference to the service
-export const auth = getAuth(app);
+/**
+ * Checks if the Firebase configuration is complete.
+ * This synchronous check prevents Firebase SDKs from being imported and
+ * initialized with placeholder values, which would cause the application to crash.
+ * @returns {boolean} - True if the configuration is valid, false otherwise.
+ */
+export const isFirebaseConfigured = !Object.values(firebaseConfig).some(
+  (value) => typeof value === 'string' && value.includes("REPLACE_")
+);

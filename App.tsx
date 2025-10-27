@@ -1,3 +1,5 @@
+
+
 // FIX: Removed duplicated code from index.tsx to resolve multiple import conflicts.
 import React, { useState, useEffect, useCallback } from 'react';
 import { LessonForm } from './components/LessonForm';
@@ -14,6 +16,7 @@ import { StudentProfile } from './components/StudentProfile';
 import { TeacherProfile } from './components/TeacherProfile';
 import { ParentProfile } from './components/ParentProfile';
 import { Notification } from './components/Notification';
+import { AuthModal } from './components/AuthModal';
 import { generateLessonScript, generateLessonAudio } from './services/geminiService';
 import type { LessonFormData, GeneratedContent, HistoryItem, AvatarCustomization } from './types';
 import { useAuth } from './contexts/AuthContext';
@@ -84,14 +87,16 @@ export default function App() {
   const [loadingMessage, setLoadingMessage] = useState('');
   const [generatedContent, setGeneratedContent] = useState<HistoryItem | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastFormData, setLastFormData] = useState<LessonFormData | null>(null);
   const [isChatVisible, setIsChatVisible] = useState(false);
   const [isHistoryVisible, setIsHistoryVisible] = useState(false);
   const [lessonHistory, setLessonHistory] = useState<HistoryItem[]>([]);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   
   // Freemium model state (for guests)
   const [lessonCount, setLessonCount] = useState(0);
   const [isUpgradeModalVisible, setIsUpgradeModalVisible] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   
   // Simple routing and shared lessons state
   const [currentPage, setCurrentPage] = useState<'main' | 'about' | 'profile'>('main');
@@ -106,12 +111,11 @@ export default function App() {
     imageUrl: undefined,
   });
 
-  const showNotification = (message: string, type: 'success' | 'info') => {
+  const showNotification = (message: string, type: 'success' | 'info' | 'error') => {
     setNotification({ message, type });
   };
   
   const handleInactive = useCallback(() => {
-    // Only apply to guest users who have used at least one lesson
     if (!user && lessonCount > 0) {
       setLessonCount(0);
       sessionStorage.removeItem(LESSON_COUNT_STORAGE_KEY);
@@ -122,12 +126,12 @@ export default function App() {
   useInactivityTimer(handleInactive, INACTIVITY_TIMEOUT);
 
   const handleGenerate = async (formData: LessonFormData) => {
+    setLastFormData(formData); // Store for potential retry
     if (!user && lessonCount >= FREE_LESSON_LIMIT) {
       setIsUpgradeModalVisible(true);
       return;
     }
 
-    // Save session at the start of generation
     localStorage.setItem(GENERATION_SESSION_KEY, JSON.stringify({ formData }));
 
     setIsLoading(true);
@@ -162,14 +166,12 @@ export default function App() {
       showNotification('Lesson ready! Email notification sent.', 'success');
       
       if (user) {
-        // Save to history only for authenticated users
         setLessonHistory(prevHistory => {
           const updatedHistory = [newContent, ...prevHistory];
           localStorage.setItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`, JSON.stringify(updatedHistory));
           return updatedHistory;
         });
       } else {
-         // Increment free lesson count for guests
          const newCount = lessonCount + 1;
          setLessonCount(newCount);
          sessionStorage.setItem(LESSON_COUNT_STORAGE_KEY, newCount.toString());
@@ -181,18 +183,18 @@ export default function App() {
 
     } catch (err: any) {
       console.error(err);
-      let errorMessage = err.message || 'An unknown error occurred.';
-       if (errorMessage.includes("Requested entity was not found.")) {
-         setError("API Key not found or invalid. Please select a valid key and try again.");
-         localStorage.removeItem(API_KEY_STORAGE_KEY);
-         setApiKeySelected(false); // Reset to prompt for key selection again
-       } else {
-         setError(`Generation failed: ${errorMessage}`);
-       }
+      const errorMessage = err.message || 'An unknown error occurred.';
+      // The backend provides user-friendly messages. We check for 'api key' to handle UI state reset.
+      if (errorMessage.toLowerCase().includes('api key')) {
+        setError(errorMessage); // Use the direct message which prompts for a new key
+        localStorage.removeItem(API_KEY_STORAGE_KEY);
+        setApiKeySelected(false);
+      } else {
+        setError(`Generation failed: ${errorMessage}`);
+      }
     } finally {
       setIsLoading(false);
       setLoadingMessage('');
-      // Clear session when generation is complete (success or fail)
       localStorage.removeItem(GENERATION_SESSION_KEY);
     }
   };
@@ -207,17 +209,14 @@ export default function App() {
     }
   }, [notification]);
 
-  // Check for shared lesson in URL on initial mount
   useEffect(() => {
     try {
         const urlParams = new URLSearchParams(window.location.search);
         const lessonData = urlParams.get('lesson');
         if (lessonData) {
-            // Decode from Base64 using a method that handles Unicode characters
             const decodedJson = decodeURIComponent(escape(atob(lessonData)));
             const lessonContent = JSON.parse(decodedJson) as GeneratedContent;
             
-            // Basic validation
             if (lessonContent && lessonContent.title && lessonContent.scenes) {
                 setSharedLessonContent(lessonContent);
             }
@@ -226,7 +225,6 @@ export default function App() {
         console.error("Failed to parse shared lesson from URL", e);
     } finally {
         setIsCheckingUrl(false);
-        // Clean up the URL to prevent re-parsing on hot-reload in dev
         if (window.history.replaceState) {
             const cleanUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
             window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
@@ -234,21 +232,17 @@ export default function App() {
     }
   }, []);
 
-  // Load app state from localStorage on initial mount
   useEffect(() => {
-    // This effect now depends on the user's auth state.
     if (authLoading) {
-      return; // Wait until Firebase has checked the auth state
+      return;
     }
 
     try {
       if (user) {
-        // User is logged in, load their history
         const savedHistory = localStorage.getItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`);
         if (savedHistory) setLessonHistory(JSON.parse(savedHistory));
         else setLessonHistory([]);
       } else {
-        // User is a guest, clear history and load guest lesson count
         setLessonHistory([]);
         const savedCount = sessionStorage.getItem(LESSON_COUNT_STORAGE_KEY);
         setLessonCount(savedCount ? parseInt(savedCount, 10) : 0);
@@ -257,7 +251,6 @@ export default function App() {
       const keyStored = localStorage.getItem(API_KEY_STORAGE_KEY) === 'true';
       setApiKeySelected(keyStored);
       
-      // Load avatar customization (not user-specific for now)
       const savedCustomization = localStorage.getItem(AVATAR_CUSTOMIZATION_KEY);
       if (savedCustomization) {
         const parsed = JSON.parse(savedCustomization);
@@ -266,7 +259,6 @@ export default function App() {
         }
       }
 
-      // Check for a generation session to resume
       const savedSession = localStorage.getItem(GENERATION_SESSION_KEY);
       if (savedSession) {
           const { formData } = JSON.parse(savedSession) as { formData: LessonFormData };
@@ -307,7 +299,7 @@ export default function App() {
   };
 
   const handleFeedbackSubmit = (lessonId: number, feedback: 'positive' | 'negative') => {
-    if (!user) return; // Feedback is only for logged-in users
+    if (!user) return;
 
     const updateHistory = (prevHistory: HistoryItem[]) =>
         prevHistory.map(item =>
@@ -335,7 +327,7 @@ export default function App() {
     setGeneratedContent(item);
     setIsHistoryVisible(false);
     setError(null);
-    setCurrentPage('main'); // Ensure we are on the main page
+    setCurrentPage('main');
   };
 
   const handleDeleteHistoryItem = (id: number) => {
@@ -393,6 +385,15 @@ export default function App() {
     });
   };
 
+  const handleRetry = () => {
+    if (lastFormData) {
+        handleGenerate(lastFormData);
+    } else {
+        console.error("Retry failed: No previous lesson data available.");
+        showNotification("Cannot retry: No lesson data found. Please create a new lesson.", 'error');
+    }
+  };
+
 
   const renderPage = () => {
     switch(currentPage) {
@@ -416,10 +417,39 @@ export default function App() {
                           )}
                           {isLoading && <LoadingDisplay message={loadingMessage} />}
                           {error && (
-                             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative my-4 dark:bg-red-900 dark:border-red-600 dark:text-red-200" role="alert">
-                                <strong className="font-bold">Error: </strong>
-                                <span className="block sm:inline">{error}</span>
-                             </div>
+                            <div className="bg-red-50 dark:bg-red-900/50 p-6 rounded-xl shadow-lg border border-red-300 dark:border-red-700 my-4 animate-fade-in" role="alert">
+                                <div className="flex">
+                                    <div className="flex-shrink-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-4 flex-grow">
+                                        <h3 className="text-lg font-bold text-red-800 dark:text-red-200">Lesson Generation Failed</h3>
+                                        <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                                            <p>{error}</p>
+                                        </div>
+                                        <div className="mt-4">
+                                            <div className="flex flex-col sm:flex-row sm:space-x-3 space-y-2 sm:space-y-0">
+                                                {!error.toLowerCase().includes('api key') && (
+                                                    <button
+                                                        onClick={handleRetry}
+                                                        className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800"
+                                                    >
+                                                        Try Again
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => setError(null)}
+                                                    className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800"
+                                                >
+                                                    Dismiss
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                           )}
                           {generatedContent && (
                             <ResultsDisplay
@@ -470,7 +500,6 @@ export default function App() {
                                 onRewardClaimed={handleRewardClaimed}
                             />;
                 default:
-                    // Fallback for logged-out user trying to access profile
                     return (
                         <div className="text-center p-8">
                             <p>Please log in to view your profile.</p>
@@ -506,6 +535,7 @@ export default function App() {
         onUpgrade={() => setIsUpgradeModalVisible(true)}
         onNavigateHome={() => handleNavigate('main')}
         onNavigateToProfile={() => handleNavigate('profile')}
+        onLoginClick={() => setIsAuthModalOpen(true)}
         remainingLessons={user ? null : Math.max(0, FREE_LESSON_LIMIT - lessonCount)}
       />
       <div className="flex-grow">
@@ -524,6 +554,7 @@ export default function App() {
         onClear={handleClearHistory}
         isAuthenticated={!!user}
       />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       <UpgradeModal isVisible={isUpgradeModalVisible} onClose={() => setIsUpgradeModalVisible(false)} />
        {notification && (
         <Notification
