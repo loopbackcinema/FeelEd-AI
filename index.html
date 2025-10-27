@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FeelEd - Emotional Generative AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "firebase/app": "https://aistudiocdn.com/firebase@^10.12.3/app",
+    "firebase/auth": "https://aistudiocdn.com/firebase@^10.12.3/auth",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.4.0/",
+    "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
+    "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1"
+  }
+}
+</script>
+<style>
+  @keyframes talking-animation {
+    0%, 100% { transform: scaleY(0.4); }
+    20% { transform: scaleY(1); }
+    40% { transform: scaleY(0.2); }
+    60% { transform: scaleY(0.8); }
+    80% { transform: scaleY(0.5); }
+  }
+  .talking-mouth {
+    animation: talking-animation 1.2s infinite ease-in-out;
+    transform-origin: center;
+  }
+  @keyframes speaking-glow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.15); }
+  }
+  .speaking-body {
+    animation: speaking-glow 1.5s infinite ease-in-out;
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  .animate-fade-in-scale {
+    animation: fadeInScale 0.3s ease-out forwards;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+   @keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+</style>
+</head>
+  <body class="bg-gray-50 dark:bg-gray-900">
+    <div id="root"></div>
+  </body>
+</html>
