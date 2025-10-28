@@ -17,10 +17,12 @@ import { TeacherProfile } from './components/TeacherProfile';
 import { ParentProfile } from './components/ParentProfile';
 import { Notification } from './components/Notification';
 import { AuthModal } from './components/AuthModal';
+import { ErrorDisplay } from './components/ErrorDisplay';
 import { generateLessonScript, generateLessonAudio } from './services/geminiService';
 import type { LessonFormData, GeneratedContent, HistoryItem, AvatarCustomization } from './types';
 import { useAuth } from './contexts/AuthContext';
 import useInactivityTimer from './hooks/useInactivityTimer';
+import { b64DecodeUnicode } from './utils/textUtils';
 
 const HISTORY_STORAGE_KEY_PREFIX = 'feeled_lesson_history_';
 const API_KEY_STORAGE_KEY = 'feeled_api_key_selected';
@@ -118,7 +120,11 @@ export default function App() {
   const handleInactive = useCallback(() => {
     if (!user && lessonCount > 0) {
       setLessonCount(0);
-      sessionStorage.removeItem(LESSON_COUNT_STORAGE_KEY);
+      try {
+        sessionStorage.removeItem(LESSON_COUNT_STORAGE_KEY);
+      } catch (e) {
+        console.warn('Could not clear lesson count from sessionStorage.', e);
+      }
       showNotification('Session reset. Your free lessons are restored.', 'info');
     }
   }, [user, lessonCount]);
@@ -132,7 +138,11 @@ export default function App() {
       return;
     }
 
-    localStorage.setItem(GENERATION_SESSION_KEY, JSON.stringify({ formData }));
+    try {
+      localStorage.setItem(GENERATION_SESSION_KEY, JSON.stringify({ formData }));
+    } catch (e) {
+      console.warn('Could not save generation session to localStorage.', e);
+    }
 
     setIsLoading(true);
     setError(null);
@@ -168,13 +178,21 @@ export default function App() {
       if (user) {
         setLessonHistory(prevHistory => {
           const updatedHistory = [newContent, ...prevHistory];
-          localStorage.setItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`, JSON.stringify(updatedHistory));
+          try {
+            localStorage.setItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`, JSON.stringify(updatedHistory));
+          } catch (e) {
+            console.warn('Could not save lesson history to localStorage.', e);
+          }
           return updatedHistory;
         });
       } else {
          const newCount = lessonCount + 1;
          setLessonCount(newCount);
-         sessionStorage.setItem(LESSON_COUNT_STORAGE_KEY, newCount.toString());
+         try {
+           sessionStorage.setItem(LESSON_COUNT_STORAGE_KEY, newCount.toString());
+         } catch (e) {
+           console.warn('Could not save lesson count to sessionStorage.', e);
+         }
          if (newCount === FREE_LESSON_LIMIT - 1) {
             showNotification('You have 1 free lesson remaining.', 'info');
          }
@@ -187,15 +205,18 @@ export default function App() {
       // The backend provides user-friendly messages. We check for 'api key' to handle UI state reset.
       if (errorMessage.toLowerCase().includes('api key')) {
         setError(errorMessage); // Use the direct message which prompts for a new key
-        localStorage.removeItem(API_KEY_STORAGE_KEY);
-        setApiKeySelected(false);
+        handleClearKey();
       } else {
         setError(`Generation failed: ${errorMessage}`);
       }
     } finally {
       setIsLoading(false);
       setLoadingMessage('');
-      localStorage.removeItem(GENERATION_SESSION_KEY);
+      try {
+        localStorage.removeItem(GENERATION_SESSION_KEY);
+      } catch (e) {
+        console.warn('Could not remove generation session from localStorage.', e);
+      }
     }
   };
 
@@ -214,7 +235,7 @@ export default function App() {
         const urlParams = new URLSearchParams(window.location.search);
         const lessonData = urlParams.get('lesson');
         if (lessonData) {
-            const decodedJson = decodeURIComponent(escape(atob(lessonData)));
+            const decodedJson = b64DecodeUnicode(lessonData);
             const lessonContent = JSON.parse(decodedJson) as GeneratedContent;
             
             if (lessonContent && lessonContent.title && lessonContent.scenes) {
@@ -265,12 +286,12 @@ export default function App() {
           if (formData?.concept) {
               setTimeout(() => handleGenerate(formData), 0);
           } else {
-              localStorage.removeItem(GENERATION_SESSION_KEY);
+              try { localStorage.removeItem(GENERATION_SESSION_KEY); } catch (e) {}
           }
       }
     } catch (e) {
-      console.error("Failed to load data from localStorage", e);
-      localStorage.removeItem(GENERATION_SESSION_KEY);
+      console.error("Failed to load data from storage", e);
+      try { localStorage.removeItem(GENERATION_SESSION_KEY); } catch (e2) {}
     }
   }, [user, authLoading]);
 
@@ -292,7 +313,11 @@ export default function App() {
             return item;
         });
         if (user) {
-            localStorage.setItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`, JSON.stringify(updatedHistory));
+            try {
+              localStorage.setItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`, JSON.stringify(updatedHistory));
+            } catch (e) {
+              console.warn('Could not save updated history to localStorage.', e);
+            }
         }
         return updatedHistory;
     });
@@ -308,7 +333,11 @@ export default function App() {
     
     setLessonHistory(prevHistory => {
         const updated = updateHistory(prevHistory);
-        localStorage.setItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`, JSON.stringify(updated));
+        try {
+          localStorage.setItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`, JSON.stringify(updated));
+        } catch (e) {
+          console.warn('Could not save feedback to localStorage.', e);
+        }
         return updated;
     });
 
@@ -334,7 +363,11 @@ export default function App() {
     if (!user) return;
     setLessonHistory(prev => {
       const updatedHistory = prev.filter(item => item.id !== id);
-      localStorage.setItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`, JSON.stringify(updatedHistory));
+      try {
+        localStorage.setItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`, JSON.stringify(updatedHistory));
+      } catch (e) {
+        console.warn('Could not update history in localStorage after delete.', e);
+      }
       return updatedHistory;
     });
   };
@@ -343,18 +376,30 @@ export default function App() {
     if (!user) return;
     if (window.confirm("Are you sure you want to delete all lesson history? This cannot be undone.")) {
       setLessonHistory([]);
-      localStorage.removeItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`);
+      try {
+        localStorage.removeItem(`${HISTORY_STORAGE_KEY_PREFIX}${user.uid}`);
+      } catch (e) {
+        console.warn('Could not clear history from localStorage.', e);
+      }
     }
   };
   
   const handleKeySelected = () => {
-    localStorage.setItem(API_KEY_STORAGE_KEY, 'true');
+    try {
+      localStorage.setItem(API_KEY_STORAGE_KEY, 'true');
+    } catch (e) {
+      console.warn('Could not save API key status to localStorage.', e);
+    }
     setApiKeySelected(true);
     setError(null);
   };
 
   const handleClearKey = () => {
-    localStorage.removeItem(API_KEY_STORAGE_KEY);
+    try {
+      localStorage.removeItem(API_KEY_STORAGE_KEY);
+    } catch (e) {
+      console.warn('Could not remove API key status from localStorage.', e);
+    }
     setApiKeySelected(false);
     setError(null);
   };
@@ -363,7 +408,11 @@ export default function App() {
     setCurrentPage(page);
     setGeneratedContent(null);
     setError(null);
-    localStorage.removeItem(GENERATION_SESSION_KEY);
+    try {
+      localStorage.removeItem(GENERATION_SESSION_KEY);
+    } catch (e) {
+      console.warn('Could not remove generation session from localStorage on navigation.', e);
+    }
   }
 
   const handleSettingsSave = () => {
@@ -380,7 +429,11 @@ export default function App() {
       if (newSettings.style && newSettings.style !== 'photo') {
         updated.imageUrl = undefined;
       }
-      localStorage.setItem(AVATAR_CUSTOMIZATION_KEY, JSON.stringify(updated));
+      try {
+        localStorage.setItem(AVATAR_CUSTOMIZATION_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Could not save avatar settings to localStorage.', e);
+      }
       return updated;
     });
   };
@@ -417,39 +470,12 @@ export default function App() {
                           )}
                           {isLoading && <LoadingDisplay message={loadingMessage} />}
                           {error && (
-                            <div className="bg-red-50 dark:bg-red-900/50 p-6 rounded-xl shadow-lg border border-red-300 dark:border-red-700 my-4 animate-fade-in" role="alert">
-                                <div className="flex">
-                                    <div className="flex-shrink-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                    <div className="ml-4 flex-grow">
-                                        <h3 className="text-lg font-bold text-red-800 dark:text-red-200">Lesson Generation Failed</h3>
-                                        <div className="mt-2 text-sm text-red-700 dark:text-red-300">
-                                            <p>{error}</p>
-                                        </div>
-                                        <div className="mt-4">
-                                            <div className="flex flex-col sm:flex-row sm:space-x-3 space-y-2 sm:space-y-0">
-                                                {!error.toLowerCase().includes('api key') && (
-                                                    <button
-                                                        onClick={handleRetry}
-                                                        className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800"
-                                                    >
-                                                        Try Again
-                                                    </button>
-                                                )}
-                                                <button
-                                                    onClick={() => setError(null)}
-                                                    className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800"
-                                                >
-                                                    Dismiss
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <ErrorDisplay
+                              message={error}
+                              onRetry={handleRetry}
+                              onDismiss={() => setError(null)}
+                              showRetryButton={!error.toLowerCase().includes('api key')}
+                            />
                           )}
                           {generatedContent && (
                             <ResultsDisplay
@@ -457,7 +483,11 @@ export default function App() {
                               onReset={() => {
                                 setGeneratedContent(null);
                                 setError(null);
-                                localStorage.removeItem(GENERATION_SESSION_KEY);
+                                try {
+                                  localStorage.removeItem(GENERATION_SESSION_KEY);
+                                } catch (e) {
+                                  console.warn('Could not remove generation session from localStorage on reset.', e);
+                                }
                               }}
                               onImageGenerated={handleImageGenerated}
                               showNotification={showNotification}

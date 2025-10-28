@@ -4,6 +4,7 @@ import { generateSceneImage } from '../services/geminiService';
 import { AIAvatar } from './AIAvatar';
 import { ToggleSwitch } from './ToggleSwitch';
 import { Tooltip } from './Tooltip';
+import { b64EncodeUnicode } from '../utils/textUtils';
 
 
 interface ResultsDisplayProps {
@@ -184,6 +185,16 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ content, onReset
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
+    const audioUrl = content.audioUrl;
+    // This is a blob URL, so we need to revoke it to prevent memory leaks when the component unmounts.
+    return () => {
+      if (audioUrl && audioUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [content.audioUrl]);
+
+  useEffect(() => {
     const audioEl = audioRef.current;
     if (!audioEl) return;
     
@@ -221,8 +232,7 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ content, onReset
         
         const lessonJson = JSON.stringify(shareableContent);
         
-        // This trick handles UTF-8 characters correctly before base64 encoding
-        const encodedLesson = btoa(unescape(encodeURIComponent(lessonJson)));
+        const encodedLesson = b64EncodeUnicode(lessonJson);
         const shareUrl = `${window.location.origin}${window.location.pathname}?lesson=${encodedLesson}`;
         
         navigator.clipboard.writeText(shareUrl)

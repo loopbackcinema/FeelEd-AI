@@ -17,8 +17,13 @@ export const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onKeySelected, o
 
 
     useEffect(() => {
-        const stored = localStorage.getItem(API_KEY_STORAGE_KEY) === 'true';
-        setIsKeyStored(stored);
+        try {
+            const stored = localStorage.getItem(API_KEY_STORAGE_KEY) === 'true';
+            setIsKeyStored(stored);
+        } catch (error) {
+            console.warn("Could not access localStorage to check for stored API key.", error);
+            setIsKeyStored(false); // Default to false if storage is inaccessible
+        }
     }, []);
 
     const validateAndProceed = async () => {

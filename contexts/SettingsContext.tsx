@@ -15,29 +15,47 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(() => {
-    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme;
-    if (storedTheme) {
-        return storedTheme;
+    try {
+        const storedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme;
+        if (storedTheme && ['light', 'dark'].includes(storedTheme)) {
+            return storedTheme;
+        }
+        // Set default based on system preference
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch (error) {
+        console.warn('Could not access localStorage to get theme. Defaulting to light.', error);
+        return 'light';
     }
-    // Set default based on system preference
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
   
   const [language, setLanguage] = useState<string>(() => {
-    return localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'English';
+    try {
+        return localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'English';
+    } catch (error) {
+        console.warn('Could not access localStorage to get language. Defaulting to English.', error);
+        return 'English';
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    try {
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+    } catch (error) {
+        console.warn('Could not save theme to localStorage.', error);
     }
   }, [theme]);
 
   useEffect(() => {
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    try {
+        localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch (error) {
+        console.warn('Could not save language to localStorage.', error);
+    }
   }, [language]);
 
   const value = { theme, setTheme, language, setLanguage };
